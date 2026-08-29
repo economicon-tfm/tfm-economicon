@@ -16,5 +16,7 @@
 
 - [x] 3.1 JUP-048 run all local and GitHub pull-request checks
 - [x] 3.2 JUP-048 activate and verify repository settings and the develop ruleset
-- [ ] 3.3 JUP-048 obtain Lucia's review and Paris's validation evidence
-- [ ] 3.4 JUP-048 merge the protected pull request and update Trello
+- [x] 3.3 JUP-048 record Lucia's GitHub identity, admin permission and PR review evidence
+- [x] 3.4 JUP-048 obtain Paris's validation evidence
+- [x] 3.5 JUP-048 merge the protected pull request and record GitHub final evidence
+- [ ] 3.6 JUP-048 record Victor's leadership confirmation and final Trello closure

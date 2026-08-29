@@ -1,6 +1,7 @@
 # Evidencia de validacion JUP-048
 
-- Fecha: 2026-08-26.
+- Fecha de auditoria: 2026-08-26.
+- Actualizacion de cierre: 2026-08-29.
 - Trello: https://trello.com/c/l7mloFNe
 - Repositorio: `EconomiconFinOps/tfm-economicon`.
 - Rama: `chore/JUP-048-consolidate-repository`.
@@ -16,8 +17,9 @@
   el repositorio. La lista general de colaboradores no refleja correctamente
   todos los permisos heredados de la organizacion, por lo que cada cuenta se
   comprobo individualmente.
-- No se conoce todavia el usuario de GitHub de Lucia y no se atribuye acceso ni
-  aprobacion sin verificarlo.
+- Lucia Mateo queda identificada como `lmatsan`. Una comprobacion visual en
+  GitHub Settings > Collaborators and teams muestra acceso directo con
+  `Role: admin` para `lmatsan` sobre `EconomiconFinOps/tfm-economicon`.
 - El token actual puede administrar el repositorio, pero GitHub rechaza la
   consulta de owners/invitaciones de la organizacion por falta de `admin:org`.
 
@@ -47,8 +49,15 @@ automatica se aplica a futuros PR fusionados.
   squash o rebase y conserva PR, revision, seis checks, conversaciones resueltas
   y bloqueo de eliminacion/force push.
 - PR: https://github.com/EconomiconFinOps/tfm-economicon/pull/12
-- GitHub Actions: https://github.com/EconomiconFinOps/tfm-economicon/actions/runs/32983095464
+- GitHub Actions inicial: https://github.com/EconomiconFinOps/tfm-economicon/actions/runs/32983095464
+- GitHub Actions final: https://github.com/EconomiconFinOps/tfm-economicon/actions/runs/33003481252
 - Los seis checks obligatorios concluyeron correctamente.
+- El PR #12 se fusiono en `develop` el 2026-08-26 mediante squash commit
+  `a746d4840ff2485d40d8d8d20398501b0651e4fd`.
+- El commit de reconciliacion previo al merge fue
+  `7cda07309b90344c99014c2368f0600b6ec5d34d`.
+- GitHub registro el borrado automatico de la rama remota
+  `chore/JUP-048-consolidate-repository` despues del merge.
 
 Validacion local: 5 pruebas nuevas de gobernanza, 7 de workflow/rulesets, 11 de
 politica de PR, 7 de trazabilidad JUP, 6 de higiene, 15 items OpenSpec, 58
@@ -58,11 +67,22 @@ pruebas Azure API, 10 backend, 126 processor y build completo del monorepo.
 
 - Liderazgo asignado en Trello: Victor Mendez.
 - Pairing/coautoria y ejecucion de la reconciliacion: Alejandro Aguado.
-- Revision de PR asignada: Lucia Mateo.
-- Validacion, pruebas y documentacion asignada: Paris Arcos Martin.
+- Revision de PR asignada: Lucia Mateo (`lmatsan`).
+- Validacion, pruebas y documentacion: Paris Arcos Martin.
 
-La asignacion de un rol no equivale a participacion realizada. La revision de
-Lucia y la validacion de Paris siguen pendientes y se registraran solo cuando
-existan evidencias reales en GitHub/Trello. El PR no se fusiona mientras esas
-responsabilidades permanezcan sin evidencia, salvo nueva decision expresa del
-equipo.
+La asignacion de un rol no equivale a participacion realizada. Lucia registro
+una revision real en el PR #12 el 2026-08-26; GitHub la marca como `DISMISSED`
+tras el commit final `7cda07309b90344c99014c2368f0600b6ec5d34d`, por lo que
+queda como evidencia de revision historica pero no como aprobacion vigente.
+
+Paris Arcos Martin confirma en la sesion de cierre del 2026-08-29 que esta
+actualizacion constituye su validacion real de JUP-048 como responsable de
+validacion, pruebas y documentacion. La validacion cubre el PR #12 fusionado, el
+commit squash `a746d4840ff2485d40d8d8d20398501b0651e4fd`, el commit de
+reconciliacion `7cda07309b90344c99014c2368f0600b6ec5d34d`, el run final
+`33003481252` con seis checks en verde, la estrategia main/develop, la evidencia
+de Lucia y la preservacion no destructiva de `setup/sdd`.
+
+La confirmacion de liderazgo de Victor sigue pendiente hasta que exista
+comentario propio en GitHub o Trello. No se atribuye liderazgo confirmado por
+asignacion de rol.
