@@ -6,34 +6,37 @@ Reemplazar por completo el frontend scaffold actual de `apps/frontend` por el fr
 repositorio externo **Economicon**, preservando la integracion del monorepo (pnpm + turbo + Docker)
 y reconectando la capa de datos con los contratos del backend de **este** repositorio.
 
-La unidad operativa de trabajo sigue siendo la HU modelada como `OpenSpec change`, tal como define
-[openspec-hu-adaptation-plan.md](openspec-hu-adaptation-plan.md). Este spike disena el proceso; no
-crea los changes ni toca codigo de producto.
+La unidad operativa de trabajo es la tarjeta Trello `JUP-XXX`, documentada mediante un `OpenSpec
+change`, siguiendo [el flujo Trello + OpenSpec](../workflows/trello-openspec.md). Este spike disena
+el proceso; no crea los changes ni toca codigo de producto.
 
 ```txt
 Epica            -> Migrar frontend del repositorio Economicon
 Features         -> agrupaciones de trabajo (F1..F5)
-Historias (HU)   -> OpenSpec changes hu-NNN-slug
-Tasks            -> pasos verificables dentro de cada HU
+Tarjetas JUP     -> OpenSpec changes jup-NNN-slug
+Tasks            -> pasos verificables dentro de cada tarjeta
 ```
 
 ## Contexto: origen vs destino
 
 | Aspecto              | Origen (Economicon)        | Destino actual (tfm-economicon)                         |
 | -------------------- | -------------------------- | ------------------------------------------------------- |
-| Framework            | React + Vite               | React 18 + Vite                                         |
+| Framework            | React 18.3.1 + Vite 6      | React 18.3.1 + Vite 5                                   |
 | Lenguaje             | **TypeScript**             | **JavaScript** (JSX)                                    |
-| Datos/estado         | `[ASUNCION]` por confirmar | TanStack Query (`@tanstack/react-query`)                |
-| Routing              | `[ASUNCION]` por confirmar | Estado manual `activeView` en `App.jsx` (sin router)    |
-| Capa API             | `[ASUNCION]` por confirmar | `src/services/api.js` centralizado                      |
-| Auth/sesion          | `[ASUNCION]` por confirmar | `localStorage` (`finops.session`, `finops.activeTenant`) |
-| Estilos              | `[ASUNCION]` por confirmar | Un unico `src/styles/main.css`, tema oscuro             |
+| Datos/estado         | Ninguna (datos estáticos/mock) | TanStack Query (`@tanstack/react-query`)                |
+| Routing              | react-router 7 (`createBrowserRouter`) | Estado manual `activeView` en `App.jsx` (sin router)    |
+| Capa API             | Ninguna (sin `fetch`/`axios`) | `src/services/api.js` centralizado                      |
+| Auth/sesion          | Ninguna (sin login/tenant) | `localStorage` (`finops.session`, `finops.activeTenant`) |
+| Estilos              | Tailwind v4 + shadcn/ui + MUI | Un unico `src/styles/main.css`, tema oscuro             |
 | Empaquetado monorepo | repo independiente         | `@finops/frontend`, pnpm workspace + turbo + Docker     |
 
-**Gap principal:** el origen llega en TypeScript y el destino esta en JavaScript. El reemplazo
-completo obliga a **adoptar TypeScript** en `apps/frontend`. Ademas, la capa de servicios del origen
-asumira los contratos del backend de Economicon, que deben **realinearse** a los contratos del
-backend de este repo.
+**Gap principal:** el origen llega en **TSX** (sin `tsconfig` ni dependencia `typescript`:
+transpilado por esbuild, sin type-check) y el destino en JavaScript; el reemplazo completo obliga a
+**adoptar TypeScript** en `apps/frontend`. Además — y es lo más relevante confirmado en JUP-083 — el
+origen es un **dashboard estático de Figma Make sin backend, sin auth y sin capa de datos**: la
+migración **no realinea** una API existente, sino que debe **añadir desde el destino** toda la capa
+de datos (`services/api.js` + TanStack Query) y el flujo de auth/sesión/tenant sobre la UI de
+Economicon.
 
 ### Hechos del destino que la migracion debe respetar (verificados)
 
@@ -49,7 +52,8 @@ backend de este repo.
   `GET /assistant/conversations/{id}`, `POST /assistant/conversations/{id}/messages`.
 - Seed local de acceso: `operator@example.com` / `secret`.
 - Monorepo: `pnpm@9.0.0` + `turbo`. Servicio `frontend` en `docker-compose.yml` (puerto 5173,
-  `VITE_API_BASE_URL`, `env_file: .env`, depende de `backend` healthy).
+  `VITE_API_BASE_URL`, depende de `backend` healthy). **Corregido en JUP-090:** el servicio no tiene
+  `env_file`; `VITE_API_BASE_URL` viaja como `environment:` inline.
 - **Regla dura del repo: prohibido `npm i`.** Solo `pnpm`.
 
 ## Estrategia: reemplazo completo
@@ -80,73 +84,83 @@ monorepo. La frontera es:
 ### Decisiones
 
 1. **Adopcion de TypeScript en `apps/frontend`.** Es una decision transversal y duradera (afecta
-   tooling, build, lint y todas las HUs futuras del frontend) -> **requiere ADR** en `docs/adr/`
+   tooling, build, lint y todas las tareas futuras del frontend) -> **requiere ADR** en `docs/adr/`
    usando `docs/templates/adr.md`, segun [AGENTS.md](../../AGENTS.md). Debe crearse/enlazarse antes
    de implementar la feature de tooling.
 2. **Vite se mantiene** como bundler (origen y destino ya usan Vite) -> el modelo de build es
    compatible; no hay migracion de bundler.
 3. **El backend de este repo manda.** La capa API del origen se reescribe contra los contratos
    listados arriba; no se importan endpoints de Economicon que aqui no existan sin antes decidir si
-   se crea backend (eso seria otra HU/epica, fuera de este alcance).
+   se crea backend (eso seria otra tarjeta/epica, fuera de este alcance).
 4. **Una sola capa API centralizada** (se mantiene el patron de `services/api.js`, portado a TS).
 
-### Supuestos a confirmar (marcar `[ASUNCION]` hasta inspeccionar Economicon)
+### Supuestos del origen (confirmados en JUP-083)
 
-- `[ASUNCION]` Economicon usa React 18 compatible (no React 19 con breaking changes).
-- `[ASUNCION]` Routing del origen (react-router u otro) y si introduce dependencias nuevas.
-- `[ASUNCION]` Libreria de datos del origen (TanStack Query, Redux, SWR...) y si coincide con la del destino.
-- `[ASUNCION]` Modelo de auth/sesion del origen y si encaja con `Bearer` + `X-Tenant-Id`.
-- `[ASUNCION]` Sistema de estilos del origen (CSS plano, CSS Modules, Tailwind, styled-components).
-- `[ASUNCION]` Assets estaticos (fuentes, imagenes, iconos) y licencias.
+- **Confirmado (T1):** React **18.3.1** (peerDeps), compatible con el destino. Vite **6** en el
+  origen frente a Vite **5** en el destino → salto de major a decidir al reconciliar el tooling.
+- **Confirmado (T2):** react-router **7.13.0** con `createBrowserRouter` (5 rutas bajo un `Layout`).
+  Dependencia nueva respecto al destino (hoy sin router). Se adopta el routing del origen.
+- **Confirmado (T3):** ninguna librería de datos/estado ni capa API en el origen (dashboards con
+  datos estáticos/mock). El destino usa TanStack Query → la migración añade toda la capa de datos.
+- **Confirmado (T4):** el origen no tiene auth/sesión/tenant. El destino sí (`Bearer` +
+  `X-Tenant-Id` + sesión en `localStorage`) → la migración añade el flujo de auth del destino.
+- **Confirmado (T5):** Tailwind CSS v4 + shadcn/ui (Radix) + MUI 7 + `next-themes`, con estilos en
+  `src/styles/`. El destino usa un único `main.css` plano → cambio grande de sistema de estilos.
+- **Confirmado (T6):** iconos vía `lucide-react`; sin `src/assets` materializado ni fuentes propias
+  (`fonts.css` vacío). Licencias en `ATTRIBUTIONS.md`: shadcn/ui (MIT) y fotos de Unsplash.
 
-### Checklist de inspeccion del origen (resolver los `[ASUNCION]`)
+### Checklist de inspeccion del origen (completado en JUP-083)
 
 ```md
-- [ ] Leer package.json de Economicon: versiones React/Vite, deps y devDeps.
-- [ ] Identificar entrypoint (main.tsx), index.html y configuracion Vite/TS.
-- [ ] Mapear routing y arbol de pantallas.
-- [ ] Localizar capa API y enumerar endpoints que consume.
-- [ ] Revisar auth/sesion y manejo de tenant.
-- [ ] Inventariar sistema de estilos y assets.
-- [ ] Detectar variables de entorno requeridas (VITE_*).
+- [x] package.json: React 18.3.1, Vite 6 (destino Vite 5), sin dependencia `typescript`.
+- [x] Entrypoint `src/main.tsx`, `index.html` y config Vite; **sin `tsconfig`** (TSX sin type-check).
+- [x] Routing y pantallas: react-router 7 (`createBrowserRouter`), 5 pantallas bajo `Layout`.
+- [x] Capa API y endpoints: **no hay capa API** (0 `fetch`/`axios`); datos estáticos/mock.
+- [x] Auth/sesion y tenant: **no existen** en el origen.
+- [x] Estilos y assets: Tailwind v4 + shadcn/ui + MUI; iconos lucide-react; sin `src/assets`.
+- [x] Variables `VITE_*`: **ninguna** en el origen.
 ```
 
-## Descomposicion: Epica -> Features -> HUs -> Tasks
+## Descomposicion: Epica -> Features -> Tarjetas JUP -> Tasks
 
 **Epica:** *Migrar frontend del repositorio Economicon* a `apps/frontend` mediante reemplazo
 completo, preservando la integracion del monorepo y reconectando con los contratos del backend
 actual.
 
-Cada HU se crea con `/opsx:propose` y se nombra `hu-NNN-slug`. El carril sugerido sigue la guia de
-[openspec-hu-adaptation-plan.md](openspec-hu-adaptation-plan.md) (`light` = acotado sin impacto
-arquitectonico; `standard` = comportamiento nuevo o multi-area). La numeracion `NNN` es indicativa.
+Cada tarea nace en Trello y su cambio OpenSpec se nombra `jup-NNN-slug` usando el identificador real
+de la tarjeta. El carril sugerido es `light` para cambios acotados sin impacto arquitectonico, o
+`standard` para comportamiento nuevo o multi-area. La numeracion `NNN` es indicativa hasta crear cada
+tarjeta en Trello.
 
 ### F1. Preparacion e inventario
 
-**HU `hu-0xx-inventariar-frontend-actual`** — carril `light`
-- [ ] Documentar que se preserva del destino (nombre paquete, scripts, puerto, Docker, contratos).
-- [ ] Marcar archivos a reemplazar vs. a conservar.
-- [ ] Definir criterios de aceptacion de paridad funcional (login -> tenant -> dashboard).
+**JUP `jup-090-inventory-current-frontend`** — carril `light`
+- [x] Documentar que se preserva del destino (nombre paquete, scripts, puerto, Docker, contratos). Ver
+  [docs/planning/JUP-090-frontend-migration-baseline.md](../planning/JUP-090-frontend-migration-baseline.md).
+- [x] Marcar archivos a reemplazar vs. a conservar. Ver la misma línea base, sección
+  "Clasificación archivo a archivo".
+- [x] Definir criterios de aceptacion de paridad funcional (login -> tenant -> dashboard). Ver la
+  misma línea base, sección "Criterios de paridad funcional".
 
-**HU `hu-0xx-inventariar-frontend-economicon`** — carril `light`
-- [ ] Completar el "Checklist de inspeccion del origen" y resolver los `[ASUNCION]`.
+**JUP `jup-0xx-inventariar-frontend-economicon`** — carril `light`
+- [x] Completar el "Checklist de inspeccion del origen" y confirmar todos los supuestos en JUP-083.
 - [ ] Listar dependencias del origen y clasificarlas (mantener / sustituir / descartar).
 - [ ] Enumerar endpoints que el origen consume y mapearlos a los contratos del backend de este repo.
 
-**HU `hu-0xx-adr-adopcion-typescript`** — carril `standard` (decision de arquitectura)
+**JUP `jup-0xx-adr-adopcion-typescript`** — carril `standard` (decision de arquitectura)
 - [ ] Redactar ADR `docs/adr/ADR-NNNN-frontend-typescript.md` con `docs/templates/adr.md`.
 - [ ] Estado `Proposed` -> `Accepted` tras HiTL.
-- [ ] Enlazar el ADR desde el `design.md` de las HUs de tooling y de codigo.
+- [ ] Enlazar el ADR desde el `design.md` de las tareas de tooling y de codigo.
 
 ### F2. Tooling y dependencias
 
-**HU `hu-0xx-configurar-typescript`** — carril `standard`
+**JUP `jup-0xx-configurar-typescript`** — carril `standard`
 - [ ] Anadir `typescript`, `@types/react`, `@types/react-dom` (y tipos necesarios) con **pnpm**.
 - [ ] Crear `tsconfig.json` (y `tsconfig.node.json` para la config de Vite si aplica).
 - [ ] Ajustar `vite.config` a `.ts` si procede; verificar arranque `pnpm dev`.
 - [ ] Migrar `eslint.config.js` a soporte TS (parser/plugin TypeScript) sin romper `pnpm lint`.
 
-**HU `hu-0xx-reconciliar-package-json`** — carril `standard`
+**JUP `jup-0xx-reconciliar-package-json`** — carril `standard`
 - [ ] Fusionar dependencias del origen en `apps/frontend/package.json`.
 - [ ] Conservar nombre `@finops/frontend`, `type: module` y los scripts del monorepo (puerto 5173).
 - [ ] Instalar con `pnpm install` desde la raiz; **nunca** `npm i`.
@@ -154,49 +168,54 @@ arquitectonico; `standard` = comportamiento nuevo o multi-area). La numeracion `
 
 ### F3. Reemplazo del codigo fuente
 
-**HU `hu-0xx-portar-codigo-fuente`** — carril `standard`
+**JUP `jup-0xx-portar-codigo-fuente`** — carril `standard`
 - [ ] Reemplazar `src/**` por el codigo de Economicon (componentes, pages, hooks, layouts).
 - [ ] Reconciliar `index.html` y entrypoint (`main.tsx`).
 - [ ] Asegurar arranque sin errores de tipo ni de runtime (`pnpm dev`, `pnpm build`).
 
-**HU `hu-0xx-reconciliar-capa-api`** — carril `standard`
+**JUP `jup-0xx-reconciliar-capa-api`** — carril `standard`
 - [ ] Portar `services/api.*` a TS como **unica** capa HTTP.
 - [ ] Alinear cada llamada a los contratos reales: `/auth/login`, `/me`, `/tenants`,
       `/billing/summary`, `/jobs/ingest`, `/assistant/conversations...`.
 - [ ] Conservar `VITE_API_BASE_URL` y headers `Authorization: Bearer` + `X-Tenant-Id`.
 - [ ] Registrar como finding cualquier endpoint del origen sin equivalente en el backend.
+- [ ] Resolver `RF-090-003` (`openspec/findings/backlog.md`): decidir si `fetchProfile`
+  (`GET /me`) se conecta o se retira, ya que hoy está implementado pero nunca se invoca.
 
-**HU `hu-0xx-reconciliar-auth-tenant`** — carril `standard`
+**JUP `jup-0xx-reconciliar-auth-tenant`** — carril `standard`
 - [ ] Adaptar login/sesion al flujo del backend (token + perfil `/me`).
 - [ ] Mantener seleccion de tenant activo y propagacion de `X-Tenant-Id`.
 - [ ] Verificar persistencia de sesion y logout.
 
-**HU `hu-0xx-unificar-estilos-assets`** — carril `light`
+**JUP `jup-0xx-unificar-estilos-assets`** — carril `light`
 - [ ] Unificar el sistema de estilos (resolver duplicados con el tema oscuro actual).
 - [ ] Migrar fuentes/iconos/imagenes y verificar licencias.
 - [ ] Confirmar que no quedan referencias a estilos del scaffold antiguo.
 
 ### F4. Integracion de plataforma (monorepo/runtime)
 
-**HU `hu-0xx-verificar-docker-compose`** — carril `light`
+**JUP `jup-0xx-verificar-docker-compose`** — carril `light`
 - [ ] Validar `Dockerfile` con el nuevo build TS (`docker compose up --build frontend`).
-- [ ] Confirmar puerto 5173, `VITE_API_BASE_URL` y `env_file` en `docker-compose.yml`.
+- [ ] Confirmar puerto 5173 y `VITE_API_BASE_URL` en `docker-compose.yml` (el servicio no usa
+  `env_file`; ver hallazgo `RF-090-002`).
+- [ ] Resolver `RF-090-001` (`openspec/findings/backlog.md`): el `Dockerfile` construye con
+  `pnpm install --no-frozen-lockfile` sin el lockfile del workspace.
 
-**HU `hu-0xx-verificar-turbo-workspace`** — carril `light`
+**JUP `jup-0xx-verificar-turbo-workspace`** — carril `light`
 - [ ] Confirmar `pnpm dev` (turbo paralelo) levanta frontend junto a backend/processor.
 - [ ] Confirmar `pnpm build` y `pnpm lint` pasan via turbo.
 
 ### F5. Verificacion y cierre
 
-**HU `hu-0xx-validacion-e2e`** — carril `standard`
+**JUP `jup-0xx-validacion-e2e`** — carril `standard`
 - [ ] E2E con seed `operator@example.com` / `secret` contra backend local.
 - [ ] Recorrer login -> seleccion de tenant -> overview -> ingesta -> asistente.
-- [ ] Registrar comandos exactos y resultados en el `review.md` de la HU.
+- [ ] Registrar comandos exactos y resultados en la revision de la tarjeta JUP.
 
-**HU `hu-0xx-checks-y-archive`** — carril `light`
+**JUP `jup-0xx-checks-y-archive`** — carril `light`
 - [ ] `pnpm openspec:validate`, `pnpm lint`, `pnpm build`, `pnpm install --frozen-lockfile`.
 - [ ] Confirmar ADR de TS `Accepted` y documentacion sincronizada (READMEs, architecture).
-- [ ] HiTL post-review y archivado de las HUs de la epica.
+- [ ] Revision del equipo y archivado de los cambios OpenSpec de la epica.
 
 ## Manejo de conflictos con archivos existentes
 
@@ -222,8 +241,7 @@ acumular todo para un unico merge final.
 
 ## Instalacion de dependencias
 
-Este repo es **pnpm-only**. No usar `npm i` bajo ninguna circunstancia (lo bloquea la review del
-flujo HU).
+Este repo es **pnpm-only**. No usar `npm i` bajo ninguna circunstancia.
 
 ```powershell
 # Anadir dependencias de runtime del origen al paquete del frontend
@@ -255,11 +273,11 @@ Notas:
    reves. Cualquier endpoint del origen sin equivalente se registra como finding.
 3. **ADR antes de tooling.** Crear/aceptar el ADR de adopcion de TypeScript antes de tocar la
    configuracion de build/lint.
-4. **Seguir el flujo HU con gates HiTL.** `pnpm hu:check:pre-code` antes de codigo y
-   `pnpm hu:check` antes de archivar; aprobacion humana pre-code y post-review.
+4. **Seguir el flujo Trello/JUP + OpenSpec.** Validar cada cambio con
+   `pnpm jup:check -- --change jup-NNN-slug` y solicitar revision humana mediante pull request.
 5. **Preservar rollback.** No borrar el scaffold actual hasta validar E2E con el seed local.
-6. **Engram solo como memoria auxiliar.** Decisiones, contratos y resultados de review viven en
-   OpenSpec/Git/ADR, no solo en Engram.
+6. **Decisiones trazables y neutrales.** Contratos, resultados de revision y decisiones duraderas
+   viven en Trello/OpenSpec/Git/ADR, sin depender de herramientas personales.
 7. **Documentacion sincronizada.** Actualizar `apps/frontend/README.md` y, si cambia la arquitectura,
    `docs/architecture.md`, al cerrar la epica.
 
@@ -267,8 +285,8 @@ Notas:
 
 | Riesgo                                              | Impacto                         | Mitigacion                                                              |
 | --------------------------------------------------- | ------------------------------- | ---------------------------------------------------------------------- |
-| Contratos del origen != backend de este repo        | Pantallas rotas / datos vacios  | HU dedicada de reconciliacion de API; findings para huecos del backend |
-| Ruptura del build al introducir TypeScript          | Frontend no compila             | ADR + HU de tooling aislada; verificar `pnpm build` antes de portar src |
+| Contratos del origen != backend de este repo        | Pantallas rotas / datos vacios  | Tarjeta JUP de reconciliacion de API; findings para huecos del backend |
+| Ruptura del build al introducir TypeScript          | Frontend no compila             | ADR + tarea JUP de tooling aislada; verificar `pnpm build` antes de portar src |
 | Perdida del flujo login/seleccion de tenant         | App inutilizable                | Criterios de aceptacion E2E con seed; preservar `Bearer` + `X-Tenant-Id` |
 | Divergencia de tooling (lint/Vite/Docker)           | CI/turbo en rojo                | Reconciliar configs como tareas explicitas; verificar via turbo y Docker |
 | Migracion "big bang"                                | Difícil de revisar y revertir   | Slices por feature; rama dedicada; rollback hasta validar              |
@@ -276,25 +294,27 @@ Notas:
 
 ## Checklist operacional de la migracion
 
-Alineado con el checklist por HU de
-[openspec-hu-adaptation-plan.md](openspec-hu-adaptation-plan.md). Aplicar **por cada HU** de la epica.
+Alineado con [el flujo Trello + OpenSpec](../workflows/trello-openspec.md). Aplicar **por cada
+tarjeta JUP** de la epica.
 
 ```md
-- [ ] Crear OpenSpec change `hu-NNN-slug` con /opsx:propose.
+- [ ] Crear la tarjeta Trello y el OpenSpec change `jup-NNN-slug` con su identificador real.
 - [ ] Completar proposal, design, specs (si aplica) y tasks verificables.
 - [ ] Evaluar ADR; para la adopcion de TS, crear/enlazar ADR; en el resto, marcar no aplicable.
-- [ ] Registrar HiTL pre-codigo y ejecutar pnpm hu:check:pre-code -- --change <change-name>.
-- [ ] Implementar con /opsx:apply y marcar tasks completadas.
+- [ ] Validar trazabilidad con pnpm jup:check -- --change <change-name>.
+- [ ] Implementar el alcance aprobado y marcar tasks completadas.
 - [ ] Ejecutar checks del carril: pnpm openspec:validate, lint, build, install --frozen-lockfile.
 - [ ] Registrar review.md (incluida la verificacion E2E cuando aplique) y findings.
 - [ ] Anadir findings fuera de scope a openspec/findings/backlog.md.
-- [ ] Registrar HiTL post-review y ejecutar pnpm hu:check -- --change <change-name>.
+- [ ] Solicitar revision del pull request y ejecutar pnpm jup:check -- --change <change-name>.
 - [ ] Sync de specs si aplica y archivar el change.
 ```
 
 ## Proximos pasos
 
-1. Inspeccionar el repositorio Economicon y resolver todos los `[ASUNCION]` (HU de inventario F1).
+1. **Hecho en JUP-083:** inspección de Economicon y supuestos confirmados (ver arriba). Replanificar
+   las tarjetas JUP de la épica según los hallazgos: el origen no tiene backend, auth ni capa de datos, así
+   que F3 debe **añadir** esas capas desde el destino, no solo reconciliarlas.
 2. Crear el ADR de adopcion de TypeScript (`docs/adr/ADR-NNNN-frontend-typescript.md`).
-3. Lanzar la primera HU de la epica con `/opsx:propose` siguiendo esta descomposicion.
-4. Ajustar la numeracion y el alcance de las HUs segun lo que revele el inventario del origen.
+3. Crear la primera tarjeta JUP de la epica y documentarla en OpenSpec siguiendo esta descomposicion.
+4. Ajustar la numeracion de Trello y el alcance de las tareas segun lo que revele el inventario.

@@ -15,6 +15,7 @@ En este proyecto hay varios submodulos importantes:
 - `apps/frontend`
 - `apps/backend`
 - `apps/processor`
+- `apps/azure-cost-api`
 - `packages/shared-config`
 
 Y ademas hay tres servicios de infraestructura:
@@ -68,6 +69,10 @@ No esta pensado para que el usuario hable con el directamente desde la interfaz.
 
 - escuchar jobs pendientes en RabbitMQ
 - procesarlos
+- consultar la API Azure Cost Management configurada mediante un cliente HTTP
+  con autenticación local, paginación segura y reintentos acotados
+- normalizar importes, monedas, fechas y dimensiones de Azure, y persistir sus
+  ejecuciones y registros de forma idempotente y aislada por tenant
 - dividir `text_content` en chunks
 - generar embeddings
 - guardar esos embeddings en pgvector
@@ -84,6 +89,24 @@ Esa API del processor no es una API de producto para el frontend.
 El frontend sigue hablando solo con el backend.
 
 Esto permite que las tareas pesadas o lentas no bloqueen al backend, y tambien permite comprobar si el processor esta vivo.
+
+### `apps/azure-cost-api`
+
+Es un servicio FastAPI independiente que simula el subconjunto de Azure Cost
+Management Query aprobado en JUP-073. Lee exclusivamente el fixture público
+`EA-Cost-Actual.sample.csv`, expone healthcheck en `:8002/health` y responde con
+la estructura posicional `columns`/`rows` utilizada por Azure.
+
+No se conecta a un tenant ni valida credenciales Azure reales. Su función es
+proporcionar un endpoint HTTP reproducible para el futuro cliente de ingesta.
+JUP-075 incorpora autenticación Bearer exclusivamente local, paginación con
+tokens opacos firmados y escenarios deterministas de throttling, errores,
+timeout, páginas vacías y datos inválidos. El contenedor conserva ejecución
+sin privilegios y filesystem de solo lectura. JUP-076 conecta el processor con
+este servicio mediante URL, bearer, timeout, reintentos y límite de páginas
+configurables. JUP-077 completa el recorrido dataset → API simulada → cliente →
+normalización → CockroachDB, con ejecuciones idempotentes, trazabilidad por
+tenant y tratamiento explícito de errores sin registros parciales.
 
 ### `packages/shared-config`
 
@@ -114,6 +137,7 @@ Aqui se guarda la informacion operativa importante, por ejemplo:
 - messages
 - estados de ejecucion
 - resultados de procesamiento
+- ejecuciones de ingesta Azure y registros normalizados de costes por tenant
 
 Piensa en CockroachDB como la memoria permanente del sistema para la parte transaccional.
 
